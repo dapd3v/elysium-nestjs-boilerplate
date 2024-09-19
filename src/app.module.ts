@@ -6,6 +6,7 @@ import authConfig from './core/config/auth.config';
 import mailConfig from './core/config/mail.config';
 
 import { HomeModule } from './home/home.module';
+import { PrismaModule } from './core/prisma/prisma.module';
 
 @Module({
   imports: [
@@ -19,7 +20,8 @@ import { HomeModule } from './home/home.module';
       ],
       envFilePath: ['.env.development.local', '.env.production.local', '.env'],
     }),
-    HomeModule, 
+    HomeModule,
+    PrismaModule,
   ],
   controllers: [],
   providers: [],
