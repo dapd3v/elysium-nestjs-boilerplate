@@ -19,7 +19,7 @@ import { HomeModule } from './home/home.module';
       ],
       envFilePath: ['.env.development.local', '.env.production.local', '.env'],
     }),
-    HomeModule,
+    HomeModule, 
   ],
   controllers: [],
   providers: [],
