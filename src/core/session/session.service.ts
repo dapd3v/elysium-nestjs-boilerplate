@@ -42,4 +42,13 @@ export class SessionService {
       where: { id },
     });
   }
+
+  async deleteByUserIdWithExclude(data: { userId: string; excludeSessionId: string }): Promise<void> {
+    await this.prisma.session.deleteMany({
+      where: {
+        userId: data.userId,         // Filtrar por userId
+        id: { not: data.excludeSessionId }, // Excluir la sesión específica
+      },
+    });
+  }
 }
