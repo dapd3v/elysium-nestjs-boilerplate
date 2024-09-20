@@ -88,8 +88,8 @@ export class AuthService {
     await this.sessionService.update(session.id, updatedSession);
 
     const user = {
-      last_name: userData.lastName,
-      first_name: userData.name,
+      name: userData.name,
+      lastName: userData.lastName,
       email: userData.email,
       image: userData.image,
     };
