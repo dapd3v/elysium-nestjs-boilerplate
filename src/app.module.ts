@@ -9,6 +9,7 @@ import { HomeModule } from './home/home.module';
 import { PrismaModule } from './core/prisma/prisma.module';
 import { UsersModule } from './core/users/users.module';
 import { SessionModule } from './core/session/session.module';
+import { AuthModule } from './core/auth/auth.module';
 
 @Module({
   imports: [
@@ -26,6 +27,7 @@ import { SessionModule } from './core/session/session.module';
     PrismaModule,
     UsersModule,
     SessionModule,
+    AuthModule,
   ],
   controllers: [],
   providers: [],
