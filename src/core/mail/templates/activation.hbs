@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=">
+    <title>{{title}}</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #4B5563; /* bg-neutral-600 */
+            font-family: Arial, sans-serif;
+            color: #333;
+        }
+        .container {
+            display: flex;
+            min-height: 100vh;
+            align-items: center;
+            justify-content: center;
+            padding: 1.5rem;
+        }
+        .card {
+            width: 100%;
+            max-width: 32rem; /* max-w-lg */
+            background-color: white;
+            border-radius: 0.5rem; /* rounded-lg */
+            padding: 1.5rem; /* p-6 */
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); /* shadow-md */
+        }
+        .header {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 1.5rem 0; /* py-6 */
+        }
+        h1 {
+            font-size: 1.875rem; /* text-3xl */
+            margin: 0.5rem 0; /* mb-4 */
+        }
+        .subheader {
+            margin: 0.5rem 0; /* mb-2 */
+        }
+        .main-title {
+            margin: 1rem 0; /* mb-4 */
+            font-size: 1.25rem; /* text-xl */
+            font-weight: 600; /* font-semibold */
+        }
+        .button {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background-color: #3B82F6; /* bg-blue-500 */
+            color: white;
+            font-weight: bold; /* font-bold */
+            padding: 0.5rem 1rem; /* px-4 py-2 */
+            border-radius: 0.25rem; /* rounded */
+            text-decoration: none;
+            transition: background-color 0.3s;
+        }
+        .button:hover {
+            background-color: #1D4ED8; /* hover:bg-blue-700 */
+        }
+        footer {
+            margin-top: 1.5rem; /* mt-6 */
+            color: #4B5563; /* text-gray-600 */
+            text-align: center;
+        }
+        .footer-text {
+            font-size: 0.875rem; /* text-sm */
+            margin: 0.5rem 0; /* space-y-3 */
+        }
+        .footer-small {
+            font-size: 0.75rem; /* text-xs */
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="card">
+            <div class="header">
+                <h1>{{app_name}}</h1>
+                <span class="subheader">{{title}}</span>
+            </div>
+            <h1 class="main-title">¡Hello!</h1>
+            <p>To finish setting up your account and start using {{app_name}}, please verify your email address.</p>
+            <a href="{{url}}" class="button">{{actionTitle}}</a>
+            <footer>
+                <p class="footer-text">This link will expire after 30 minutes. To request another verification link, please log in to prompt a re-send link.</p>
+                <p class="footer-small">© {{app_name}}</p>
+            </footer>
+        </div>
+    </div>
+</body>
+
+</html>
