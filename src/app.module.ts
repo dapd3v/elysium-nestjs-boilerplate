@@ -8,6 +8,7 @@ import mailConfig from './core/config/mail.config';
 import { HomeModule } from './home/home.module';
 import { PrismaModule } from './core/prisma/prisma.module';
 import { UsersModule } from './core/users/users.module';
+import { SessionModule } from './core/session/session.module';
 
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { UsersModule } from './core/users/users.module';
     HomeModule,
     PrismaModule,
     UsersModule,
+    SessionModule,
   ],
   controllers: [],
   providers: [],
