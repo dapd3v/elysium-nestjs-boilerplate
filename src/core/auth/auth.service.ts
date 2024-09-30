@@ -67,7 +67,7 @@ export class AuthService {
     const dataSession = {
       sessionToken: hash,
       userId: userData.id,
-      expires: ms(this.configService.getOrThrow('auth.expires')),
+      expires: new Date(Date.now() + ms(this.configService.getOrThrow('auth.expires'))),
     };
 
     const session =await this.sessionService.create(dataSession);
