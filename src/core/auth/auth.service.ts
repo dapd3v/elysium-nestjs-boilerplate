@@ -78,14 +78,15 @@ export class AuthService {
       hash,
     });
 
-    const updatedSession = {
-      ...session,
-      access_token: access_token,
-      refresh_token: refresh_token,
-      expires_at: expires_in, 
-    };
+    // adaptacion a modelo de accounts
+    // const updatedAccount = {
+    //   ...session,
+    //   access_token: access_token,
+    //   refresh_token: refresh_token,
+    //   expires_at: expires_in, 
+    // };
 
-    await this.sessionService.update(session.id, updatedSession);
+    // await this.accountService.update(session.id, updatedAccount);
 
     const user = {
       name: userData.name,
