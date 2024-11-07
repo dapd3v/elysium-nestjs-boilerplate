@@ -15,6 +15,7 @@ import { JwtRefreshPayloadType } from './types/jwt-refresh-payload.type';
 import { NullableType } from '../utils/types/nullable.type';
 import { JwtPayloadType } from './types/jwt-payload.type';
 import { AuthUpdateDto } from './dto/auth-update.dto';
+import { LoggerService } from '../logger/logger.service';
 
 @Injectable()
 export class AuthService {
@@ -25,6 +26,7 @@ export class AuthService {
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
     private readonly usersService: UsersService,
+    private readonly logger: LoggerService,
   ) {}
 
   async validateLogin(loginDto: AuthEmailLoginDto): Promise<LoginResponseDto> {
@@ -104,150 +106,207 @@ export class AuthService {
   }
   
   async register(dto: AuthRegisterLoginDto): Promise<void> {
-    const user = await this.usersService.createUser({
-      ...dto,
-      email: dto.email,
-    });
+    try {
+      this.logger.log('Starting user registration process', 'AuthService');
 
-    const hash = await this.jwtService.signAsync(
-      {
-        confirmEmailUserId: user.id,
-      },
-      {
-        secret: this.configService.getOrThrow('auth.confirmEmailSecret', {
-          infer: true,
-        }),
-        expiresIn: this.configService.getOrThrow('auth.confirmEmailExpires', {
-          infer: true,
-        }),
-      },
-    );
+      const user = await this.usersService.createUser({
+        ...dto,
+        email: dto.email,
+      });
 
-    await this.mailService.userSignUp({
-      to: dto.email,
-      data: {
-        hash,
-      },
-    });
+      const hash = await this.jwtService.signAsync(
+        {
+          confirmEmailUserId: user.id,
+        },
+        {
+          secret: this.configService.getOrThrow('auth.confirmEmailSecret', {
+            infer: true,
+          }),
+          expiresIn: this.configService.getOrThrow('auth.confirmEmailExpires', {
+            infer: true,
+          }),
+        },
+      );
+      this.logger.log(`Sending confirmation email to: ${dto.email}`, 'AuthService');
+
+      await this.mailService.userSignUp({
+        to: dto.email,
+        data: {
+          hash,
+        },
+      });
+
+      this.logger.log(`Registration completed for user: ${dto.email}`, 'AuthService');
+
+    } catch (error) {
+      this.logger.error(
+        'Registration process failed',
+        error.stack,
+        'AuthService'
+      );
+      throw error;
+    }
   }
 
   async confirmEmail(hash: string): Promise<void> {
-    let userId: User['id'];
-
     try {
-      const jwtData = await this.jwtService.verifyAsync<{
-        confirmEmailUserId: User['id'];
-      }>(hash, {
-        secret: this.configService.getOrThrow('auth.confirmEmailSecret', {
-          infer: true,
-        }),
-      });
+      this.logger.log('Starting email confirmation process', 'AuthService');
+      
+      let userId: User['id'];
 
-      userId = jwtData.confirmEmailUserId;
-    } catch {
-      throw new UnprocessableEntityException({
-        status: HttpStatus.UNPROCESSABLE_ENTITY,
-        errors: {
-          hash: `INVALID_OR_EXPIRED_HASH`,
-        },
-      });
+      try {
+        const jwtData = await this.jwtService.verifyAsync<{
+          confirmEmailUserId: User['id'];
+        }>(hash, {
+          secret: this.configService.getOrThrow('auth.confirmEmailSecret', {
+            infer: true,
+          }),
+        });
+
+        userId = jwtData.confirmEmailUserId;
+      } catch (error) {
+        this.logger.error('Invalid or expired hash', error.stack, 'AuthService');
+        throw new UnprocessableEntityException({
+          status: HttpStatus.UNPROCESSABLE_ENTITY,
+          errors: {
+            hash: `INVALID_OR_EXPIRED_HASH`,
+          },
+        });
+      }
+
+      const user = await this.usersService.findById(userId);
+
+      if (!user || !(user.emailVerified instanceof Date)) {
+        this.logger.error(`User not found or email already verified: ${userId}`, 'AuthService');
+        throw new NotFoundException({
+          status: HttpStatus.NOT_FOUND,
+          error: `NOT_FOUND`,
+        });
+      }
+
+      user.emailVerified = new Date();
+      await this.usersService.updateUser(user.id, user);
+      
+      this.logger.log(`Email confirmed successfully for user: ${userId}`, 'AuthService');
+    } catch (error) {
+      this.logger.error(
+        'Email confirmation failed',
+        error.stack,
+        'AuthService'
+      );
+      throw error;
     }
-
-    const user = await this.usersService.findById(userId);
-
-    if (
-      !user ||
-      !(user.emailVerified instanceof Date) // Verifica que sea una fecha válida
-    ) {
-      throw new NotFoundException({
-        status: HttpStatus.NOT_FOUND,
-        error: `NOT_FOUND`,
-      });
-    }
-
-    user.emailVerified = new Date();
-
-    await this.usersService.updateUser(user.id, user);
   }
 
   async confirmNewEmail(hash: string): Promise<void> {
-    let userId: User['id'];
-    let newEmail: User['email'];
-
     try {
-      const jwtData = await this.jwtService.verifyAsync<{
-        confirmEmailUserId: User['id'];
-        newEmail: User['email'];
-      }>(hash, {
-        secret: this.configService.getOrThrow('auth.confirmEmailSecret', {
-          infer: true,
-        }),
-      });
+      this.logger.log('Starting new email confirmation process', 'AuthService');
+      
+      let userId: User['id'];
+      let newEmail: User['email'];
 
-      userId = jwtData.confirmEmailUserId;
-      newEmail = jwtData.newEmail;
-    } catch {
-      throw new UnprocessableEntityException({
-        status: HttpStatus.UNPROCESSABLE_ENTITY,
-        errors: {
-          hash: `invalidHash`,
-        },
-      });
+      try {
+        const jwtData = await this.jwtService.verifyAsync<{
+          confirmEmailUserId: User['id'];
+          newEmail: User['email'];
+        }>(hash, {
+          secret: this.configService.getOrThrow('auth.confirmEmailSecret', {
+            infer: true,
+          }),
+        });
+
+        userId = jwtData.confirmEmailUserId;
+        newEmail = jwtData.newEmail;
+      } catch (error) {
+        this.logger.error('Invalid or expired hash', error.stack, 'AuthService');
+        throw new UnprocessableEntityException({
+          status: HttpStatus.UNPROCESSABLE_ENTITY,
+          errors: {
+            hash: `invalidHash`,
+          },
+        });
+      }
+
+      const user = await this.usersService.findById(userId);
+
+      if (!user) {
+        this.logger.error(`User not found: ${userId}`, 'AuthService');
+        throw new NotFoundException({
+          status: HttpStatus.NOT_FOUND,
+          error: `notFound`,
+        });
+      }
+
+      user.email = newEmail;
+      user.emailVerified = null;
+
+      await this.usersService.updateUser(user.id, user);
+      
+      this.logger.log(`Email updated successfully for user: ${userId}`, 'AuthService');
+    } catch (error) {
+      this.logger.error(
+        'New email confirmation failed',
+        error.stack,
+        'AuthService'
+      );
+      throw error;
     }
-
-    const user = await this.usersService.findById(userId);
-
-    if (!user) {
-      throw new NotFoundException({
-        status: HttpStatus.NOT_FOUND,
-        error: `notFound`,
-      });
-    }
-
-    user.email = newEmail;
-    user.emailVerified = null;
-
-
-    await this.usersService.updateUser(user.id, user);
   }
 
   async forgotPassword(email: string): Promise<void> {
-    const user = await this.usersService.findByEmail(email);
+    try {
+      this.logger.log(`Starting password recovery process for email: ${email}`, 'AuthService');
 
-    if (!user) {
-      throw new UnprocessableEntityException({
-        status: HttpStatus.UNPROCESSABLE_ENTITY,
-        errors: {
-          email: 'EMAIL_NOT_EXISTS',
+      const user = await this.usersService.findByEmail(email);
+
+      if (!user) {
+        this.logger.warn(`Password recovery attempted for non-existent email: ${email}`, 'AuthService');
+        throw new UnprocessableEntityException({
+          status: HttpStatus.UNPROCESSABLE_ENTITY,
+          errors: {
+            email: 'EMAIL_NOT_EXISTS',
+          },
+        });
+      }
+
+      const tokenExpiresIn = this.configService.getOrThrow('auth.forgotExpires', {
+        infer: true,
+      });
+
+      const tokenExpires = Date.now() + ms(tokenExpiresIn);
+
+      const hash = await this.jwtService.signAsync(
+        {
+          forgotUserId: user.id,
+        },
+        {
+          secret: this.configService.getOrThrow('auth.forgotSecret', {
+            infer: true,
+          }),
+          expiresIn: tokenExpiresIn,
+        },
+      );
+
+      this.logger.log(`Sending password recovery email to: ${email}`, 'AuthService');
+
+      await this.mailService.forgotPassword({
+        to: email,
+        data: {
+          hash,
+          tokenExpires,
         },
       });
+      this.logger.log(`Password recovery email sent successfully to: ${email}`, 'AuthService');
+
+    } catch (error) {
+      this.logger.error(
+        `Password recovery process failed for email: ${email}`,
+        error,
+        'AuthService'
+      );
+      throw error;
     }
 
-    const tokenExpiresIn = this.configService.getOrThrow('auth.forgotExpires', {
-      infer: true,
-    });
-
-    const tokenExpires = Date.now() + ms(tokenExpiresIn);
-
-    const hash = await this.jwtService.signAsync(
-      {
-        forgotUserId: user.id,
-      },
-      {
-        secret: this.configService.getOrThrow('auth.forgotSecret', {
-          infer: true,
-        }),
-        expiresIn: tokenExpiresIn,
-      },
-    );
-
-    await this.mailService.forgotPassword({
-      to: email,
-      data: {
-        hash,
-        tokenExpires,
-      },
-    });
   }
 
   async resetPassword(hash: string, password: string): Promise<void> {
