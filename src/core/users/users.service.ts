@@ -1,4 +1,4 @@
-import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
+import { HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import * as bcrypt from 'bcryptjs';
@@ -12,6 +12,8 @@ import { UserException } from './users.exception';
 
 @Injectable()
 export class UsersService {
+  private readonly logger = new Logger(UsersService.name);
+
   constructor(
     private prisma: PrismaService,
     private configService: ConfigService,
@@ -154,7 +156,7 @@ export class UsersService {
         this.configService.get<number>('auth.hashing'),
       );
     }
-
+    this.logger.log(`Actualizando usuario con ID: ${id}`);
     return this.prisma.user.update({ where: { id }, data });
   }
   
@@ -168,7 +170,7 @@ export class UsersService {
       where: { id },
       data: { delete_at: new Date() },
     });
-
+    this.logger.log(`Usuario eliminado con ID: ${id}`);
     return user.delete_at !== null;
     
   }
