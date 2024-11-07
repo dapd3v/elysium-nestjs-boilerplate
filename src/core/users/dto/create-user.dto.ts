@@ -1,6 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
-import { IsString, IsEmail, IsOptional, IsNotEmpty, IsUrl, MinLength } from 'class-validator';
+import { IsString, IsEmail, IsOptional, IsNotEmpty, IsUrl, MinLength, Matches } from 'class-validator';
 import { lowerCaseTransformer } from 'src/core/utils/transformers/lower-case.transformer';
 
 export class CreateUserDto {
@@ -13,7 +13,10 @@ export class CreateUserDto {
   @IsString()
   @IsNotEmpty()
   @ApiProperty()
-  @MinLength(6)
+  @MinLength(8)
+  @Matches(/((?=.*\d)|(?=.*\W+))(?![.\n])(?=.*[A-Z])(?=.*[a-z]).*$/, {
+    message: 'La contraseña debe contener mayúsculas, minúsculas y números',
+  })
   password: string;
 
   @IsString()

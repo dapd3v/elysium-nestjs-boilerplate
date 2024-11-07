@@ -7,58 +7,94 @@ import { ConfigService } from '@nestjs/config';
 import { User } from '@prisma/client';
 import { NullableType } from '../utils/types/nullable.type';
 import { PrismaService } from '../prisma/prisma.service';
+import { UserException } from './users.exception';
 
 
 @Injectable()
 export class UsersService {
-
   constructor(
     private prisma: PrismaService,
     private configService: ConfigService,
   ) {}
 
-  async createUser(userDto: CreateUserDto): Promise<UserEntity>  {
-    const isUserAlreadyExist = await this.findByEmail(userDto.email);
-
-    let hashedPassword: string;
-
-    if (isUserAlreadyExist) throw new HttpException('USER_ALREADY_EXIST', HttpStatus.BAD_REQUEST);
-    
+  private async hashPassword(password: string): Promise<string> {
     try {
-        hashedPassword = await bcrypt.hash(
-            userDto.password,
-            this.configService.get<number>('auth.hashing'),
-        );
+      return await bcrypt.hash(
+        password,
+        this.configService.get<number>('auth.hashing'),
+      );
     } catch (error) {
-        throw new HttpException('INTERNAL_SERVER_ERROR', HttpStatus.INTERNAL_SERVER_ERROR);
+      throw new HttpException(
+        'Error al encriptar contraseña',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
     }
-
-    userDto.password = hashedPassword;
-
-    const user = await this.prisma.user.create({
-      data: userDto,
-    });
-
-    return user;
   }
 
-  async getAll(userId: string, queryParam: string = 'tes'): Promise<UserEntity[]> {
-    const users = await this.prisma.user.findMany({
-      where: {
-        uuid: { not: userId }, // Excluir usuarios con el mismo uuid
-        OR: [
-          { email: { contains: queryParam, mode: 'insensitive' } },
-          { name: { contains: queryParam, mode: 'insensitive' } },
-          { lastName: { contains: queryParam, mode: 'insensitive' } },
-        ],
-        delete_at: null, // Excluir usuarios "borrados suavemente"
-      },
-      orderBy: {
-        createdAt: 'desc', // Ordenar por fecha de creación
-      },
-    });
-  
-    return users.map(user => new UserEntity(user));
+  private async validateNewUser(userDto: CreateUserDto): Promise<void> {
+    const existingUser = await this.findByEmail(userDto.email);
+    if (existingUser) {
+      throw new UserException(
+        'El correo electrónico ya está registrado',
+        HttpStatus.CONFLICT
+      );
+    }
+  }
+
+  private handleError(error: any, defaultMessage: string): never {
+    this.logger.error(error);
+    if (error instanceof UserException) {
+      throw error;
+    }
+    throw new UserException(defaultMessage, HttpStatus.INTERNAL_SERVER_ERROR);
+  }
+
+  /**
+   * Crea un nuevo usuario en el sistema
+   * @param userDto - Datos del usuario a crear
+   * @throws {UserException} Si el correo ya existe
+   * @returns {Promise<UserEntity>} Usuario creado
+   */
+  async createUser(userDto: CreateUserDto): Promise<UserEntity>  {
+    try {
+      await this.validateNewUser(userDto);
+
+      const hashedPassword = await this.hashPassword(userDto.password);
+      
+      const user = await this.prisma.user.create({
+        data: {
+          ...userDto,
+          password: hashedPassword,
+        },
+      });
+
+      this.logger.log(`Usuario creado exitosamente: ${user.email}`);
+      return new UserEntity(user);
+    } catch (error) {
+      this.handleError(error, 'Error al crear usuario');
+    }
+  }
+
+
+  async getAll(userId: string, queryParam: string = ''): Promise<UserEntity[]> {
+    try {
+      const users = await this.prisma.user.findMany({
+        where: {
+          uuid: { not: userId },
+          delete_at: null,
+          OR: [
+            { email: { contains: queryParam, mode: 'insensitive' } },
+            { name: { contains: queryParam, mode: 'insensitive' } },
+            { lastName: { contains: queryParam, mode: 'insensitive' } },
+          ],
+        },
+        orderBy: { createdAt: 'desc' },
+      });
+
+      return users.map(user => new UserEntity(user));
+    } catch (error) {
+      this.handleError(error, 'Error al obtener usuarios');
+    }
   }
   
   async findById(id: UserEntity['id']): Promise<NullableType<User>> {
