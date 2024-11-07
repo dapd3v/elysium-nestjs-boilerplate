@@ -1,3 +1,4 @@
+import { LoggerModule } from './core/logger/logger.module';
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import dbConfig from './core/config/db.config';
@@ -28,8 +29,9 @@ import { AuthModule } from './core/auth/auth.module';
     UsersModule,
     SessionModule,
     AuthModule,
+    LoggerModule,
   ],
   controllers: [],
   providers: [],
 })
-export class AppModule {}
+export class AppModule { }
