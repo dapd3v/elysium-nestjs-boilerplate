@@ -1,4 +1,4 @@
-import { HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common';
+import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import * as bcrypt from 'bcryptjs';
@@ -8,15 +8,16 @@ import { User } from '@prisma/client';
 import { NullableType } from '../utils/types/nullable.type';
 import { PrismaService } from '../prisma/prisma.service';
 import { UserException } from './users.exception';
+import { LoggerService } from '../logger/logger.service';
 
 
 @Injectable()
 export class UsersService {
-  private readonly logger = new Logger(UsersService.name);
 
   constructor(
     private prisma: PrismaService,
     private configService: ConfigService,
+    private readonly logger: LoggerService,
   ) {}
 
   /**
@@ -27,6 +28,7 @@ export class UsersService {
    */
   private async hashPassword(password: string): Promise<string> {
     try {
+      
       return await bcrypt.hash(
         password,
         this.configService.get<number>('auth.hashing'),
@@ -63,10 +65,10 @@ export class UsersService {
    * @returns {never}
    */
   private handleError(error: any, defaultMessage: string): never {
-    this.logger.error(error);
-    if (error instanceof UserException) {
-      throw error;
-    }
+    this.logger.error('Error al crear usuario', error, 'UsersService');
+
+    if (error instanceof UserException) throw error;
+    
     throw new UserException(defaultMessage, HttpStatus.INTERNAL_SERVER_ERROR);
   }
 
@@ -78,6 +80,8 @@ export class UsersService {
    */
   async createUser(userDto: CreateUserDto): Promise<UserEntity>  {
     try {
+      this.logger.log('Creating new user', 'UsersService');
+
       await this.validateNewUser(userDto);
 
       const hashedPassword = await this.hashPassword(userDto.password);
