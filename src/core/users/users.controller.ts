@@ -4,6 +4,8 @@ import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { ApiBearerAuth, ApiCreatedResponse, ApiOkResponse, ApiParam, ApiTags } from '@nestjs/swagger';
 import { UserEntity } from './entities/user.entity';
+import { Role } from '../auth/enums/role.enum';
+import { Auth } from '../auth/decorators/auth.decorator';
 
 @ApiTags('Users')
 @ApiBearerAuth()
@@ -21,6 +23,7 @@ export class UsersController {
     groups: ['admin'],
   })
   @Post()
+  @Auth(Role.ADMIN, Role.USER)
   @HttpCode(HttpStatus.CREATED)
   create(@Body() createUserDto: CreateUserDto):Promise<UserEntity> {
     return this.usersService.createUser(createUserDto);
@@ -30,6 +33,7 @@ export class UsersController {
     groups: ['admin'],
   })
   @Get()
+  @Auth(Role.ADMIN)
   @HttpCode(HttpStatus.OK)
   findAll( 
     @Req() req, 
