@@ -94,7 +94,7 @@ export class AuthService {
       name: userData.name,
       lastName: userData.lastName,
       email: userData.email,
-      image: userData.image,
+      image: await this.usersService.getProfilePhotoUrl(userData.id)
     };
 
     return {
