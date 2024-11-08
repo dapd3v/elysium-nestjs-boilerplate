@@ -1,3 +1,5 @@
+import { StorageModule } from './core/storage/storage.module';
+import { StorageService } from './core/storage/storage.service';
 import { LoggerModule } from './core/logger/logger.module';
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
@@ -30,6 +32,7 @@ import { AuthModule } from './core/auth/auth.module';
     SessionModule,
     AuthModule,
     LoggerModule,
+    StorageModule,
   ],
   controllers: [],
   providers: [],
