@@ -2,7 +2,6 @@ import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import * as bcrypt from 'bcryptjs';
-import { UserEntity } from './entities/user.entity';
 import { ConfigService } from '@nestjs/config';
 import { User } from '@prisma/client';
 import { NullableType } from '../utils/types/nullable.type';
@@ -10,6 +9,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { UserException } from './users.exception';
 import { LoggerService } from '../logger/logger.service';
 import { StorageService } from '../storage/storage.service';
+import { UserResponseDto } from './dto/user.response.dto';
 
 
 @Injectable()
@@ -80,7 +80,7 @@ export class UsersService {
    * @throws {UserException} Si el correo ya existe
    * @returns {Promise<UserEntity>} Usuario creado
    */
-  async createUser(userDto: CreateUserDto): Promise<UserEntity>  {
+  async createUser(userDto: CreateUserDto): Promise<UserResponseDto>  {
     try {
       this.logger.log('Creating new user', 'UsersService');
 
@@ -96,7 +96,7 @@ export class UsersService {
       });
 
       this.logger.log(`Usuario creado exitosamente: ${user.email}`);
-      return new UserEntity(user);
+      return Object.assign(new UserResponseDto(), user);
     } catch (error) {
       this.handleError(error, 'Error al crear usuario');
     }
@@ -107,10 +107,10 @@ export class UsersService {
    * @param userId - ID del usuario actual que se excluirá de los resultados
    * @param queryParam - Parámetro opcional para filtrar usuarios por email, nombre o apellido
    * @throws {UserException} Si hay un error al obtener los usuarios
-   * @returns {Promise<UserEntity[]>} Lista de usuarios encontrados
+   * @returns {Promise<UserResponseDto[]>} Lista de usuarios encontrados
    */
 
-  async getAll(userId: string, queryParam: string = ''): Promise<UserEntity[]> {
+  async getAll(userId: string, queryParam: string = ''): Promise<UserResponseDto[]> {
     try {
       const users = await this.prisma.user.findMany({
         where: {
@@ -125,7 +125,13 @@ export class UsersService {
         orderBy: { createdAt: 'desc' },
       });
 
-      return users.map(user => new UserEntity(user));
+      const usersWithPhotos = await Promise.all(users.map(async user => ({
+        ...new UserResponseDto(),
+        ...user,
+        image: await this.getProfilePhotoUrl(user.id)
+      })));
+      
+      return usersWithPhotos;
     } catch (error) {
       this.handleError(error, 'Error al obtener usuarios');
     }
@@ -136,16 +142,16 @@ export class UsersService {
    * @param id - ID del usuario a buscar
    * @returns {Promise<NullableType<User>>} Usuario encontrado o null si no existe
    */
-  async findById(id: UserEntity['id']): Promise<NullableType<User>> {
+  async findById(id: User['id']): Promise<NullableType<User>> {
     return await this.prisma.user.findUnique({ where: { id } });
   }
 
   /**
    * Obtiene un usuario por su email
    * @param email - Email del usuario a buscar
-   * @returns {Promise<NullableType<UserEntity>>} Usuario encontrado o null si no existe
+   * @returns {Promise<NullableType<User>>} Usuario encontrado o null si no existe
    */
-  async findByEmail(email: UserEntity['email']): Promise<NullableType<UserEntity>> {
+  async findByEmail(email: User['email']): Promise<NullableType<User>> {
     return await this.prisma.user.findUnique({ where: { email } });
   }
 
@@ -153,9 +159,9 @@ export class UsersService {
    * Actualiza un usuario existente
    * @param id - ID del usuario a actualizar
    * @param data - Datos del usuario a actualizar
-   * @returns {Promise<UserEntity>} Usuario actualizado
+   * @returns {Promise<UserResponseDto>} Usuario actualizado
    */
-  async updateUser(id: string, data: UpdateUserDto): Promise<UserEntity> {
+  async updateUser(id: string, data: UpdateUserDto): Promise<UserResponseDto> {
     if (data.password) {
       data.password = await bcrypt.hash(
         data.password,
