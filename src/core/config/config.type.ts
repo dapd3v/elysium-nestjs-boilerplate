@@ -55,6 +55,28 @@ export type MailConfig = {
   transport: string;
 };
 
+export type StorageConfig = {
+  uploadPath: string;
+  maxFileSize: number;
+  storageType: string;
+  allowedMimeTypes: string[];
+  profilePhotos: {
+    path: string;
+    maxSize: number;
+    allowedTypes: string[];
+  };
+  baseUrl: string;
+  compression: {
+    enabled: boolean;
+    quality: number;
+  };
+  limits: {
+    maxFiles: number;
+    maxFileSize: number;
+    maxTotalSize: number;
+  };
+};
+
 export type AllConfigType = {
   app: AppConfig;
   auth: AuthConfig;
