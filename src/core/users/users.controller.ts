@@ -94,4 +94,18 @@ export class UsersController {
   remove(@Param('id') id: UserEntity['id']): Promise<boolean> {
     return this.usersService.delete(id);
   }
+
+  @Delete('profile-photo')
+  @Auth(Role.USER)
+  async deleteProfilePhoto(@Req() req: any) {
+    await this.usersService.deleteProfilePhoto(req.user._pk);
+  }
+
+  @Get('profile-photo')
+  @Auth(Role.USER)
+  async getProfilePhoto(@Req() req: any) {
+    return {
+      url: await this.usersService.getProfilePhotoUrl(req.user._pk)
+    };
+  }
 }

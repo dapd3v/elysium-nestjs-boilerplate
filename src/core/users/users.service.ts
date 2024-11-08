@@ -9,6 +9,7 @@ import { NullableType } from '../utils/types/nullable.type';
 import { PrismaService } from '../prisma/prisma.service';
 import { UserException } from './users.exception';
 import { LoggerService } from '../logger/logger.service';
+import { StorageService } from '../storage/storage.service';
 
 
 @Injectable()
@@ -17,6 +18,7 @@ export class UsersService {
   constructor(
     private prisma: PrismaService,
     private configService: ConfigService,
+    private storageService: StorageService,
     private readonly logger: LoggerService,
   ) {}
 
@@ -68,7 +70,7 @@ export class UsersService {
     this.logger.error('Error al crear usuario', error, 'UsersService');
 
     if (error instanceof UserException) throw error;
-    
+
     throw new UserException(defaultMessage, HttpStatus.INTERNAL_SERVER_ERROR);
   }
 
@@ -177,6 +179,135 @@ export class UsersService {
     this.logger.log(`Usuario eliminado con ID: ${id}`);
     return user.delete_at !== null;
     
+  }
+
+  async updateProfilePhoto(userId: string, file: Express.Multer.File): Promise<void> {
+    try {
+      this.logger.log(`Updating profile photo for user: ${userId}`);
+  
+      // Validar tipo de archivo
+      if (!this.configService.get<string[]>('storage.profilePhotos.allowedTypes').includes(file.mimetype)) {
+        throw new HttpException(
+          'Invalid file type for profile photo',
+          HttpStatus.BAD_REQUEST
+        );
+      }
+  
+      // Validar tamaño
+      if (file.size > this.configService.get<number>('storage.profilePhotos.maxSize')) {
+        throw new HttpException(
+          'File size exceeds maximum allowed for profile photos',
+          HttpStatus.BAD_REQUEST
+        );
+      }
+  
+      const user = await this.prisma.user.findUnique({
+        where: { id: userId },
+        select: { image: true },
+      });
+  
+      // Eliminar foto anterior
+      if (user?.image) {
+        await this.storageService.deleteFile(user.image);
+      }
+  
+      // Guardar nueva foto
+      const filePath = await this.storageService.saveFile(
+        file,
+        'profile-photos'
+      );
+  
+      // Actualizar usuario
+      await this.prisma.user.update({
+        where: { id: userId },
+        data: { image: filePath },
+      });
+  
+      this.logger.log(`Profile photo updated successfully for user: ${userId}`);
+    } catch (error) {
+      this.logger.error('Failed to update profile photo', error.stack);
+      throw error;
+    }
+  }
+
+  /**
+   * Elimina la foto de perfil del usuario
+   * @param userId - ID del usuario
+   * @throws {HttpException} Si ocurre un error al eliminar
+   */
+  async deleteProfilePhoto(userId: string): Promise<void> {
+    try {
+      this.logger.log(`Attempting to delete profile photo for user: ${userId}`, 'UsersService');
+
+      const user = await this.prisma.user.findUnique({
+        where: { id: userId },
+        select: { image: true }
+      });
+
+      if (!user?.image) {
+        this.logger.log('No profile photo to delete', 'UsersService');
+        return;
+      }
+
+      // Eliminar archivo del almacenamiento
+      await this.storageService.deleteFile(user.image);
+
+      // Actualizar usuario
+      await this.prisma.user.update({
+        where: { id: userId },
+        data: { image: null }
+      });
+
+      this.logger.log(`Profile photo deleted successfully for user: ${userId}`, 'UsersService');
+    } catch (error) {
+      this.logger.error('Failed to delete profile photo', error.stack, 'UsersService');
+      throw new HttpException(
+        'Error al eliminar foto de perfil',
+        HttpStatus.INTERNAL_SERVER_ERROR
+      );
+    }
+  }
+
+  /**
+   * Obtiene la URL de la foto de perfil del usuario
+   * @param userId - ID del usuario
+   * @returns URL de la foto de perfil
+   */
+  async getProfilePhotoUrl(userId: string): Promise<string> {
+    try {
+      const user = await this.prisma.user.findUnique({
+        where: { id: userId },
+        select: { image: true, name: true }
+      });
+
+      if (!user) {
+        throw new HttpException('Usuario no encontrado', HttpStatus.NOT_FOUND);
+      }
+
+      if (user.image) {
+        return this.storageService.getFileUrl(user.image);
+      }
+
+      return this.getDefaultProfilePhotoUrl(user.name);
+    } catch (error) {
+      this.logger.error('Failed to get profile photo URL', error.stack, 'UsersService');
+      throw error;
+    }
+  }
+
+  /**
+   * Genera una URL para la foto de perfil por defecto
+   * @param name - Nombre del usuario
+   * @returns URL de la foto de perfil por defecto
+   */
+  private getDefaultProfilePhotoUrl(name: string): string {
+    const initials = name
+      .split(' ')
+      .map(segment => segment.charAt(0))
+      .join('')
+      .toUpperCase();
+
+    return `https://ui-avatars.com/api/?name=${encodeURIComponent(initials)}&color=7F9CF5&background=EBF4FF`;
   }
 
 }
