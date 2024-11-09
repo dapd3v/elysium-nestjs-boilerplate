@@ -1,11 +1,12 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, SerializeOptions, HttpCode, HttpStatus, Query, Req } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, SerializeOptions, HttpCode, HttpStatus, Query, Req, UploadedFile } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
-import { ApiBearerAuth, ApiCreatedResponse, ApiOkResponse, ApiParam, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiBody, ApiConsumes, ApiCreatedResponse, ApiOkResponse, ApiParam, ApiTags } from '@nestjs/swagger';
 import { UserEntity } from './entities/user.entity';
 import { Role } from '../auth/enums/role.enum';
 import { Auth } from '../auth/decorators/auth.decorator';
+import { UploadFile } from '../storage/decorators/upload.decorator';
 
 @ApiTags('Users')
 @ApiBearerAuth()
@@ -107,5 +108,32 @@ export class UsersController {
     return {
       url: await this.usersService.getProfilePhotoUrl(req.user._pk)
     };
+  }
+
+  @Post('profile-photo')
+  @Auth(Role.USER)
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        file: {
+          type: 'string',
+          format: 'binary',
+        },
+      },
+    },
+  })
+  @UploadFile('file', 'profile-photos')
+  async uploadProfilePhoto(
+    @UploadedFile() file: Express.Multer.File,
+    @Req() req: any
+  ) {
+    try {
+      await this.usersService.updateProfilePhoto(req.user._pk, file);
+      return { message: 'Profile photo updated successfully' };
+    } catch (error) {
+      throw error;
+    }
   }
 }
